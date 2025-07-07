@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  devbox:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: linux-setup
+    ports:
+      - "2222:22"
+    volumes:
+      - ../project_files:/home/vishal/workspace
+    tty: true
