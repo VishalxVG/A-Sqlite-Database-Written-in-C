@@ -3,6 +3,8 @@
 #include <string.h>
 #include <errno.h>
 #include <stdbool.h>
+#include <stddef.h>
+#include <unistd.h>
 
 /**
  * my_getline() – read an entire line from `stream`, allocate or grow *lineptr as needed.

@@ -1,0 +1,123 @@
+B-Tree Simple Structure Used in the Code 
+
+
+{
+    #define size_of_attribute(Struct, Attribute) sizeof(((Struct *)0)->Attribute)
+    const uint32_t ID_SIZE = size_of_attribute(Row, id); = sizeof(Row->id) = 4
+    const uint32_t USERNAME_SIZE = size_of_attribute(Row, username); => 1*32 = 32
+    const uint32_t EMAIL_SIZE = size_of_attribute(Row, email); => 1*255 = 255
+
+}
+
+size_of_attribute is a macro which is a fancy way of returning the size of attributes of the Row Table
+The method creates a fake pointer to the structure and return the size of required attribute. Since we are just 
+returning the size of the attribute this gives no error
+
+----------------------x-----------------------------------------------------------------------------------------------------
+SERIALIZATION AND DESERIALIZATION : 
+
+Directly inserting the structure Row into the memory may leave gaps between each succession . Inorder to prevent it 
+we serialize , which is coverting the structure into bits of particular size and then insert it into the Table
+
+So we maintain certain offsets , deciding where each attribute start from
+
+{
+    // Offsett Parameters
+    const uint32_t ID_OFFSET = 0;
+    const uint32_t USERNAME_OFFSET = ID_OFFSET + ID_SIZE; => 0 + 4 = 4
+    const uint32_t EMAIL_OFFSET = USERNAME_OFFSET + USERNAME_SIZE; => 4 + 32 = 36
+    const uint32_t ROW_SIZE = ID_SIZE + USERNAME_SIZE + EMAIL_SIZE; => 4 + 32 + 255 = 291
+}
+
+basically means
+bytes 0..3   → id
+bytes 4..35  → username
+bytes 36..290 → email
+
+The memcpy function copies n bytes of data from the source pointer __src to the destination pointer __dest. 
+Both pointers are marked with the __restrict__ qualifier, indicating that the memory regions they point to do not overlap, and the function returns a pointer to the destination.
+----------------------------------------------------------------------------------------------------------------------------
+
+{
+    const uint32_t PAGE_SIZE = 4096;
+    #define TABLE_MAX_PAGES 100
+    const uint32_t ROWS_PER_PAGE = PAGE_SIZE / ROW_SIZE;
+    const uint32_t TABLE_MAX_ROWS = ROWS_PER_PAGE * TABLE_MAX_PAGES;
+}
+
+PageSize is 4Kb since that is the size of a  memory page on most systems and a good size for disk I/O too.
+We are considering 100 pages at most
+RowPerPage = 4096 / 291 => 14 pages per page 
+TABLE_MAX_ROWS = 14 rows/page * 100 pages = 1400 rows
+
+----------------------x-----------------------------------------------------------------------------------------------------
+How we maintain the Table 
+{
+   const uint32_t PAGE_SIZE = 4096;
+    #define TABLE_MAX_PAGES 100
+    const uint32_t ROWS_PER_PAGE = PAGE_SIZE / ROW_SIZE;
+    const uint32_t TABLE_MAX_ROWS = ROWS_PER_PAGE * TABLE_MAX_PAGES;
+
+    typedef struct
+    {
+        uint32_t num_rows;
+        void *pages[TABLE_MAX_PAGES];
+    } Table; 
+
+    void *row_slot(Table *table, uint32_t row_num)
+    {
+        uint32_t page_num = row_num / ROWS_PER_PAGE;
+        void *page = table->pages[page_num];
+        if (page == NULL)
+        {
+            // Alocate memory only when we try to access
+            page = table->pages[page_num] = malloc(PAGE_SIZE);
+        }
+        uint32_t row_offset = row_num % ROWS_PER_PAGE;
+        uint32_t byte_offset = row_offset * ROW_SIZE;
+        return page + byte_offset;
+    }
+
+}
+
+The Table is the in-memory structure that tracks everything.
+It knows:
+
+num_rows: how many rows the table currently holds.
+
+pages: an array of pointers to pages (each page is 4KB).
+
+row_slot() : defines where the row should be stored
+
+row_num = 0..13 → page 0
+row_num = 14..27 → page 1
+row_num = 28..41 → page 2
+...
+
+"uint32_t page_num = row_num / ROWS_PER_PAGE;"
+
+page_num = row_num(4) / ROWS_PER_PAGE(14) = 0 > page 0 is where the row should be stored
+
+we get that pointer from the table 
+if the page is not allocated yet , we allocate it 
+
+"   uint32_t row_offset = row_num % ROWS_PER_PAGE;
+    uint32_t byte_offset = row_offset * ROW_SIZE;  
+    return page + byte_offset; "
+
+row_offset : where inside the page , is the row stored 
+byte_offset : how far into the page (in bytes) to find the row
+page + byte_offset = pointer to the memory location of that row
+
+Eg : 
+row_num  = 17 
+first we calculate the page_num 
+page_num = row_num / rows per page => 17 / 14 = 1
+so it should be stored in page 1
+then , 
+row_offset = 17 % 14 = 3 => it should be in the 3rd slot 
+byte_offset = 3 * ROW_SIZE(291) => 873
+so the row should be stored at pagee[3] + 873
+
+------------------------------------------------------------------------------------------------------------------
+

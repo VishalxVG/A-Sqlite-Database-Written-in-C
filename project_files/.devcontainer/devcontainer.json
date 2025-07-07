@@ -1,0 +1,14 @@
+{
+  "name": "Ubuntu Dev",
+  "dockerComposeFile": "../../ubuntu-docker-setup/docker-compose.yml",
+  "service": "devbox",
+  "workspaceFolder": "/home/vishal/workspace",
+  "remoteUser": "vishal",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cpptools"
+      ]
+    }
+  }
+}
